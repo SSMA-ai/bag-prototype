@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAG store — animated prototype</title>
+<style>
+  :root{
+    --bg:#0b0e0c; --ink:#ece8df; --mute:#8f958f; --line:rgba(236,232,223,.12);
+    --serif: "Instrument Serif","Cormorant Garamond","Times New Roman",Georgia,serif;
+    --sans: Inter,"Helvetica Neue",Arial,sans-serif;
+    --mono: ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  body{overflow-x:hidden}
+  canvas#stage{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;display:block}
+
+  /* nav pill */
+  nav{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:22px;align-items:center;
+      padding:8px 8px 8px 18px;border-radius:999px;background:rgba(15,18,16,.55);backdrop-filter:blur(10px);
+      border:1px solid var(--line);font-size:12px}
+  nav b{font-weight:600;letter-spacing:.02em}
+  nav a{color:var(--mute);text-decoration:none}
+  nav a:hover{color:var(--ink)}
+  nav .cta{background:var(--ink);color:#111;padding:6px 14px;border-radius:999px}
+
+  /* proto labels */
+  .tag{position:fixed;left:18px;bottom:46px;z-index:20;font:11px var(--mono);color:#c9b8ff;background:rgba(40,25,70,.7);
+       border:1px solid rgba(160,130,255,.4);padding:6px 10px;border-radius:6px;letter-spacing:.03em}
+  .timebar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;height:30px;border-top:1px solid var(--line);
+           background:rgba(10,12,11,.7);backdrop-filter:blur(6px)}
+  .timebar div{flex:1;font:10px var(--mono);color:#555c56;display:flex;align-items:center;justify-content:center;
+               border-right:1px solid var(--line);position:relative;transition:color .3s}
+  .timebar div.on{color:var(--ink)}
+  .timebar div i{position:absolute;left:0;bottom:0;height:2px;background:#c08a52;width:0}
+
+  main{position:relative;z-index:5}
+  section{position:relative}
+  .wrap{padding:0 6vw}
+  .eyebrow{font:10px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+  h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.01em}
+  .btn{display:inline-block;font-size:12px;padding:9px 16px;border-radius:999px;background:var(--ink);color:#111;text-decoration:none;border:0;cursor:pointer}
+  .link{font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:4px;margin-left:14px}
+  .meta{font:10px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:26px}
+  .fade{opacity:0;transform:translateY(24px);transition:opacity .9s ease, transform .9s ease}
+  .fade.in{opacity:1;transform:none}
+
+  /* hero */
+  #hero{height:120vh}
+  #hero .copy{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;max-width:430px}
+  #hero h1{font-size:clamp(64px,8vw,120px);line-height:.9;margin-bottom:22px}
+  #hero p{font-size:13px;line-height:1.6;color:#c9c6bd;margin-bottom:24px}
+
+  #second{height:120vh;display:flex;align-items:center}
+  #second h2{font-size:clamp(48px,5.5vw,84px);line-height:.95;margin-bottom:20px}
+  #second p{font-size:13px;line-height:1.6;color:#c9c6bd;max-width:380px}
+
+  #walk{height:110vh}
+
+  /* steps — pinned */
+  #steps{height:320vh}
+  #steps .pin{position:sticky;top:0;height:100vh;display:flex;align-items:center}
+  #steps .panel{width:min(560px,44vw);background:linear-gradient(90deg,rgba(11,14,12,.92),rgba(11,14,12,.55));padding:34px 28px;border-radius:4px}
+  #steps h2{font-size:44px;line-height:1;margin:10px 0 14px}
+  #steps .intro{font-size:12px;line-height:1.6;color:#b9b6ad;margin-bottom:20px}
+  .step{display:grid;grid-template-columns:28px 1fr 50px;gap:10px;padding:11px 8px;border-top:1px solid var(--line);opacity:.35;transition:opacity .35s, background .35s}
+  .step.on{opacity:1;background:rgba(192,138,82,.10)}
+  .step.done{opacity:.7}
+  .step .n{font:10px var(--mono);color:var(--mute);padding-top:3px}
+  .step h4{font-family:var(--serif);font-weight:400;font-size:18px}
+  .step p{font-size:11px;color:#a9a69e;margin-top:2px}
+  .step .t{font:12px var(--mono);text-align:right;padding-top:3px}
+  .total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--ink);padding:14px 8px 0;margin-top:4px}
+  .total span{font-size:12px;color:var(--mute)}
+  .total b{font:400 36px var(--serif)}
+
+  /* quote */
+  #quote{height:110vh;display:flex;align-items:flex-start;justify-content:center;padding-top:16vh}
+  #quote blockquote{font-family:var(--serif);font-size:clamp(26px,2.6vw,38px);line-height:1.2;max-width:720px;text-align:left}
+  #quote .meta{margin-top:16px}
+
+  /* configurator */
+  #colors{height:260vh}
+  #colors .pin{position:sticky;top:0;height:100vh;display:flex;align-items:center}
+  .cfg{width:340px}
+  .cfg .head{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:14px}
+  .cfg h3{font-size:40px;line-height:1;transition:opacity .25s}
+  .cfg .desc{font-size:12px;color:#b9b6ad;margin:6px 0 16px;min-height:16px}
+  .sw{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:18px}
+  .sw button{aspect-ratio:1.15;border-radius:3px;border:1px solid transparent;cursor:pointer;position:relative;
+             font:7px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.85);display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;
+             background-image:linear-gradient(160deg,rgba(255,255,255,.18),rgba(0,0,0,.35))}
+  .sw button.on{border-color:var(--ink);outline:1px solid var(--ink);outline-offset:2px}
+  .price{font:400 26px var(--serif)}
+  .cfg .meta{margin-top:18px}
+
+  /* contact */
+  #contact{min-height:120vh;display:flex;align-items:center}
+  #contact .grid{display:grid;grid-template-columns:1fr 360px;gap:6vw;align-items:center;width:100%;max-width:1100px;margin:0 auto}
+  #contact h2{font-size:clamp(44px,4.6vw,68px);line-height:.98;margin:14px 0 18px}
+  #contact p{font-size:13px;line-height:1.6;color:#c9c6bd;max-width:420px}
+  form{background:rgba(20,24,22,.6);backdrop-filter:blur(18px);border:1px solid var(--line);padding:24px;border-radius:6px}
+  form h4{font:400 20px var(--serif);margin-bottom:16px}
+  label{display:block;font:9px var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:12px 0 4px}
+  input,select,textarea{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);color:var(--ink);font:13px var(--sans);padding:6px 0;outline:none}
+  select option{background:#111}
+  textarea{height:56px;resize:none}
+  form .btn{width:100%;margin-top:18px;background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  footer{position:relative;z-index:5;padding:30px 6vw 60px;display:flex;justify-content:space-between;font-size:11px;color:var(--mute);border-top:1px solid var(--line);background:var(--bg)}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<nav>
+  <b>◆ Brand</b>
+  <a href="#colors">Leathers</a>
+  <a href="#steps">Workshop</a>
+  <a href="#quote">The hide</a>
+  <a href="#contact" class="cta">Reserve</a>
+</nav>
+
+<div class="tag" id="tag">PROTOTYPE · scene 1</div>
+<div class="timebar" id="timebar"></div>
+
+<main>
+  <!-- 1. HERO -->
+  <section id="hero" class="wrap">
+    <div class="copy">
+      <h1>Product<br>Name</h1>
+      <p>Hero line placeholder — one or two sentences about the bag, the material and the hand that makes it. Final copy written later.</p>
+      <div><a class="btn" href="#colors">See the leathers</a><a class="link" href="#steps">How it's made</a></div>
+      <div class="meta">Material · 28 cm · City</div>
+    </div>
+  </section>
+
+  <!-- 2. SECOND STATEMENT -->
+  <section id="second" class="wrap">
+    <div class="fade">
+      <h2>Short bold<br>statement.</h2>
+      <p>Supporting paragraph placeholder. The video keeps playing behind the text while you scroll — the hand lifts the bag and walks away with it.</p>
+      <div class="meta">Model · Colour · Price</div>
+    </div>
+  </section>
+
+  <!-- 3. WALK (video only) -->
+  <section id="walk"></section>
+
+  <!-- 4. STEPS (pinned, list advances with scroll, clock adds up) -->
+  <section id="steps" class="wrap">
+    <div class="pin">
+      <div class="panel">
+        <div class="eyebrow">The workshop</div>
+        <h2>Hours of work,<br>step by step.</h2>
+        <p class="intro">Intro placeholder — every step listed with its time. The active step lights up as you scroll and the total counts up.</p>
+        <div id="stepList"></div>
+        <div class="total"><span>One bag, one maker</span><b id="clock">0:00</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. QUOTE -->
+  <section id="quote" class="wrap">
+    <div class="fade">
+      <blockquote>Big serif quote placeholder about the leather — two or three lines that sit above the bag while it comes to rest in the centre.</blockquote>
+      <div class="meta">Detail one · Detail two · Detail three</div>
+    </div>
+  </section>
+
+  <!-- 6. COLOUR CONFIGURATOR (pinned) -->
+  <section id="colors" class="wrap">
+    <div class="pin">
+      <div class="cfg">
+        <div class="head"><span class="eyebrow">The colours</span><span class="eyebrow">Ten leathers</span></div>
+        <h3 id="cName">Cognac</h3>
+        <div class="desc" id="cDesc"></div>
+        <div class="sw" id="sw"></div>
+        <div class="price">€000</div>
+        <div class="eyebrow" style="margin:4px 0 16px">Made to order · lead time</div>
+        <a class="btn" href="#contact">Reserve this leather</a>
+        <div class="meta">Spec · spec · spec · spec</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. CONTACT -->
+  <section id="contact" class="wrap">
+    <div class="grid fade">
+      <div>
+        <div class="eyebrow">By appointment</div>
+        <h2>Closing headline<br>placeholder.</h2>
+        <p>Short paragraph: pick a leather, leave your details, we reply with a date. Final copy later.</p>
+      </div>
+      <form onsubmit="event.preventDefault();this.querySelector('.btn').textContent='Sent ✓ (prototype)'">
+        <h4>Request an appointment</h4>
+        <label>Name</label><input placeholder="First and last">
+        <label>Email</label><input placeholder="you@example.com">
+        <label>Which leather</label><select id="cSelect"></select>
+        <label>Anything we should know</label><textarea placeholder="Optional"></textarea>
+        <button class="btn">Request an appointment</button>
+      </form>
+    </div>
+  </section>
+</main>
+<footer><span>◆ Brand</span><span>Prototype — placeholders only, real video + copy come in the build</span></footer>
+
+<script>
+/* ---------- data ---------- */
+const LEATHERS=[
+ ["Cognac","#a85a26","Placeholder line about this leather."],
+ ["Chestnut","#6b3520","Placeholder line about this leather."],
+ ["Bordeaux","#6e1f22","Placeholder line about this leather."],
+ ["Black","#1c1a19","Placeholder line about this leather."],
+ ["Tan","#a87a52","Placeholder line about this leather."],
+ ["Olive","#5f5a2c","Placeholder line about this leather."],
+ ["Navy","#2c3a55","Placeholder line about this leather."],
+ ["Sand","#9b8a66","Placeholder line about this leather."],
+ ["Stone","#6f6a62","Placeholder line about this leather."],
+ ["Forest","#234a32","Placeholder line about this leather."]
+];
+const STEPS=[["Cutting","1:10"],["Skiving","2:05"],["Saddle stitch","5:40"],["Edges","2:30"],["Stamp","0:08"],["Assembly","1:15"],["Inspection","1:12"]];
+const SCENES=["Hand reaches","Lift","Walk","Workshop","Quote","Colours","Reserve"];
+
+/* ---------- build UI ---------- */
+const sl=document.getElementById('stepList');
+STEPS.forEach((s,i)=>{sl.insertAdjacentHTML('beforeend',`<div class="step"><span class="n">0${i+1}</span><div><h4>${s[0]}</h4><p>One-line description placeholder.</p></div><span class="t">${s[1]}</span></div>`)});
+const stepEls=[...document.querySelectorAll('.step')];
+const mins=STEPS.map(s=>{const[a,b]=s[1].split(':');return +a*60+ +b});
+
+const sw=document.getElementById('sw'), sel=document.getElementById('cSelect');
+LEATHERS.forEach((l,i)=>{
+  const b=document.createElement('button');b.style.backgroundColor=l[1];b.textContent=l[0];
+  b.onmouseenter=b.onclick=()=>pick(i);sw.appendChild(b);
+  sel.insertAdjacentHTML('beforeend',`<option value="${i}">${String(i+1).padStart(2,'0')} · ${l[0]}</option>`);
+});
+sel.onchange=()=>pick(+sel.value);
+let colorFrom=LEATHERS[0][1], colorTo=LEATHERS[0][1], colorT=1;
+function pick(i){
+  [...sw.children].forEach((b,j)=>b.classList.toggle('on',j===i));
+  document.getElementById('cName').textContent=LEATHERS[i][0];
+  document.getElementById('cDesc').textContent=LEATHERS[i][2];
+  sel.value=i;
+  colorFrom=currentColor(); colorTo=LEATHERS[i][1]; colorT=0;
+}
+const tb=document.getElementById('timebar');
+SCENES.forEach(s=>tb.insertAdjacentHTML('beforeend',`<div>${s}<i></i></div>`));
+const tbEls=[...tb.children];
+
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.25});
+document.querySelectorAll('.fade').forEach(el=>io.observe(el));
+
+/* ---------- canvas "video" ---------- */
+const cv=document.getElementById('stage'),cx=cv.getContext('2d');
+let W,H,DPR;
+function resize(){DPR=Math.min(devicePixelRatio,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+
+const lerp=(a,b,t)=>a+(b-a)*t, clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+function hex2rgb(h){const n=parseInt(h.slice(1),16);return[n>>16,n>>8&255,n&255]}
+function mix(a,b,t){const A=hex2rgb(a),B=hex2rgb(b);return '#'+A.map((v,i)=>Math.round(lerp(v,B[i],t)).toString(16).padStart(2,'0')).join('')}
+function currentColor(){return mix(colorFrom,colorTo,clamp(colorT))}
+function shade(h,f){const c=hex2rgb(h).map(v=>clamp(Math.round(v*f),0,255));return '#'+c.map(v=>v.toString(16).padStart(2,'0')).join('')}
+
+/* keyframes over section anchors: x,y in viewport fractions, s=bag scale, arm=hand on handle(0..1), fig=suit figure opacity, swing, light */
+const KF=[
+ {at:'hero',   x:.60,y:.55,s:1.00,arm:0,  fig:0, swing:0, rot:-4},
+ {at:'second', x:.66,y:.70,s:1.10,arm:1,  fig:0, swing:0, rot:0},
+ {at:'walk',   x:.76,y:.66,s:.95, arm:1,  fig:1, swing:1, rot:6},
+ {at:'steps',  x:.72,y:.56,s:1.15,arm:1,  fig:1, swing:.3,rot:-3},
+ {at:'quote',  x:.55,y:.80,s:1.35,arm:1,  fig:1, swing:0, rot:0},
+ {at:'colors', x:.62,y:.66,s:1.75,arm:1,  fig:1, swing:0, rot:0},
+ {at:'contact',x:.74,y:.72,s:1.35,arm:1,  fig:.6,swing:0, rot:0}
+];
+function anchors(){return KF.map(k=>{const el=document.getElementById(k.at);return el.offsetTop})}
+let A=anchors(); addEventListener('resize',()=>A=anchors());
+
+function state(sy){
+  let i=0; while(i<KF.length-1&&sy>=A[i+1])i++;
+  if(i>=KF.length-1)return{...KF[KF.length-1],idx:KF.length-1,local:1};
+  const t=ease(clamp((sy-A[i])/(A[i+1]-A[i])));
+  const a=KF[i],b=KF[i+1],o={idx:i,local:(sy-A[i])/(A[i+1]-A[i])};
+  for(const k of['x','y','s','arm','fig','swing','rot'])o[k]=lerp(a[k],b[k],t);
+  return o;
+}
+
+let sy=scrollY, smooth=scrollY, t0=performance.now();
+addEventListener('scroll',()=>sy=scrollY,{passive:true});
+
+function draw(now){
+  smooth+= (sy-smooth)*0.12;               // smoothed "scrub"
+  colorT+=0.06;
+  const st=state(smooth), time=now/1000;
+  cx.clearRect(0,0,W,H);
+
+  // spotlight backdrop (green-grey wall)
+  const gx=W*lerp(.62,.55,clamp(st.idx/6)), gy=H*.42;
+  const g=cx.createRadialGradient(gx,gy,0,gx,gy,Math.max(W,H)*.55);
+  g.addColorStop(0,'#5d6b60');g.addColorStop(.35,'#26312a');g.addColorStop(1,'#0b0e0c');
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+
+  const base=Math.min(W,H)*.34*st.s;
+  const bx=W*st.x, by=H*st.y + Math.sin(time*1.6)*4*(1-st.arm) ;
+  const sway=Math.sin(time*2.2)*st.swing*0.12;
+
+  // suit figure (legs + jacket) behind bag
+  if(st.fig>0.01){
+    cx.globalAlpha=st.fig;
+    const fx=bx+base*.55, top=-20;
+    cx.fillStyle='#1b1e22';
+    cx.fillRect(fx-base*.35,top,base*.95,H*.62);           // jacket
+    cx.fillStyle='#24272c';
+    const step=Math.sin(time*3)*st.swing*base*.06;
+    cx.fillRect(fx-base*.25+step,H*.5,base*.32,H*.6);      // leg L
+    cx.fillRect(fx+base*.15-step,H*.5,base*.32,H*.6);      // leg R
+    cx.globalAlpha=1;
+  }
+
+  // bag
+  const col=currentColor();
+  const bw=base*1.05, bh=base*.78;
+  cx.save();cx.translate(bx,by);cx.rotate((st.rot*Math.PI/180)+sway);
+  // handle (arch)
+  cx.lineWidth=base*.06;cx.strokeStyle=shade(col,.75);cx.lineCap='round';
+  cx.beginPath();cx.ellipse(0,-bh*.5,bw*.28,bh*.62,0,Math.PI,2*Math.PI);cx.stroke();
+  cx.fillStyle='#b8923f';[-1,1].forEach(d=>{cx.beginPath();cx.arc(d*bw*.28,-bh*.5,base*.03,0,7);cx.fill()});
+  // body
+  const bg2=cx.createLinearGradient(-bw/2,0,bw/2,0);
+  bg2.addColorStop(0,shade(col,.7));bg2.addColorStop(.45,shade(col,1.15));bg2.addColorStop(1,shade(col,.6));
+  cx.fillStyle=bg2;roundRect(-bw/2,-bh/2,bw,bh,base*.06);cx.fill();
+  // flap
+  cx.fillStyle=shade(col,1.0);roundRect(-bw/2-2,-bh/2,bw+4,bh*.28,base*.05);cx.fill();
+  cx.strokeStyle='rgba(0,0,0,.25)';cx.lineWidth=1;cx.beginPath();cx.moveTo(-bw/2,-bh/2+bh*.28);cx.lineTo(bw/2,-bh/2+bh*.28);cx.stroke();
+  // emboss mark
+  cx.strokeStyle=shade(col,.6);cx.lineWidth=base*.018;cx.beginPath();
+  cx.moveTo(-base*.09,bh*.2);cx.lineTo(0,-bh*.02);cx.lineTo(base*.09,bh*.2);cx.stroke();
+  cx.restore();
+
+  // hand + arm
+  if(true){
+    const reach=st.arm; // 0: hand above, open ; 1: gripping handle
+    const hx=bx+ (1-reach)*base*.35, hy=by-bh*.5-bh*.62 + (1-reach)*(-base*.25);
+    const armFromX=lerp(W+40,bx+base*.5,clamp(st.fig)), armFromY=lerp(-40,-40,0);
+    cx.strokeStyle='#151719';cx.lineWidth=base*.22;cx.lineCap='round';
+    cx.beginPath();cx.moveTo(armFromX,armFromY);cx.quadraticCurveTo(lerp(W*.9,hx+base*.2,st.fig),hy-base*.4,hx+base*.06,hy-base*.08);cx.stroke();
+    cx.fillStyle='#e7e2d8';roundRect(hx+base*.02-base*.05,hy-base*.14,base*.12,base*.05,3);cx.fill();   // shirt cuff
+    cx.fillStyle='#d9a98a';cx.beginPath();cx.ellipse(hx,hy,base*.11,base*.08*(1+reach*.3),0,0,7);cx.fill(); // hand
+  }
+
+  // labels / timebar
+  const sceneIdx=Math.min(st.idx+(st.local>.85?1:0),6);
+  document.getElementById('tag').textContent=`PROTOTYPE · scroll-scrub video placeholder · scene ${sceneIdx+1}/7 — ${SCENES[sceneIdx]}`;
+  tbEls.forEach((el,i)=>{el.classList.toggle('on',i===sceneIdx);el.querySelector('i').style.width=(i<st.idx?100:i===st.idx?clamp(st.local)*100:0)+'%'});
+
+  // steps progress
+  const sEl=document.getElementById('steps'); const sp=clamp((smooth-sEl.offsetTop)/(sEl.offsetHeight-H));
+  const act=Math.min(STEPS.length-1,Math.floor(sp*STEPS.length));
+  let total=0; stepEls.forEach((el,i)=>{el.classList.toggle('on',i===act&&sp>0);el.classList.toggle('done',i<act);if(i<act)total+=mins[i]});
+  if(sp>0){total+=mins[act]*clamp(sp*STEPS.length-act)}
+  if(sp>=.999)total=mins.reduce((a,b)=>a+b,0);
+  document.getElementById('clock').textContent=Math.floor(total/60)+':'+String(Math.floor(total%60)).padStart(2,'0');
+
+  requestAnimationFrame(draw);
+}
+function roundRect(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+pick(0);
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
